@@ -163,7 +163,7 @@
         return;
       }
 
-      if (event.data.type === UI_EVENT_NAME) {
+      if (event.data.type === UI_EVENT_NAME || event.data.type === "tradeLotFeed:sync") {
         render(event.data.payload);
       }
     });
@@ -217,5 +217,14 @@
     render(payload);
   };
 
+  function notifyParentReady() {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: UI_READY_EVENT_NAME }, "*");
+    }
+  }
+
   render({ args: [], lots: [], updatedAt: null, eventName: UI_EVENT_NAME });
+  notifyParentReady();
+  setTimeout(notifyParentReady, 300);
+  setTimeout(notifyParentReady, 1200);
 }());
