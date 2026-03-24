@@ -1,77 +1,86 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sign Display</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Marketplace Trading pushLots Feed</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
   <main class="app-shell">
-    <section class="sign-stage" aria-label="Rendered sign">
-      <div class="sign-plate">
-        <div class="sign-surface">
-          <div class="sign-content">
-            <div id="signText" class="sign-text" aria-live="polite"></div>
-          </div>
+    <section class="panel">
+      <p class="eyebrow">GitHub Pages WebView</p>
+      <h1 id="event-name">marketplace.client.trading.pushLots</h1>
+      <p class="subline">This page is meant to be opened inside the game WebView and receive payloads through the client bridge.</p>
+
+      <div class="feed-meta">
+        <span id="feed-source">Source: booting</span>
+        <span id="entry-count">0 lots</span>
+      </div>
+
+      <div class="status-grid">
+        <div class="status-card">
+          <span class="status-label">Last update</span>
+          <strong id="last-updated">-</strong>
         </div>
+        <div class="status-card">
+          <span class="status-label">Status</span>
+          <strong id="sync-status">Waiting for payload</strong>
+        </div>
+        <div class="status-card">
+          <span class="status-label">Arg blocks</span>
+          <strong id="arg-count">0</strong>
+        </div>
+        <div class="status-card">
+          <span class="status-label">Bridge</span>
+          <strong id="bridge-kind">unknown</strong>
+        </div>
+      </div>
+
+      <section class="section-block">
+        <div class="section-head">
+          <h2>Top-level event args</h2>
+        </div>
+
+        <div class="table-wrap table-wrap--secondary">
+          <table class="feed-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Type</th>
+                <th>Length</th>
+                <th>Preview</th>
+              </tr>
+            </thead>
+            <tbody id="raw-args-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <div id="empty-state" class="empty-state">No lots received yet</div>
+
+      <div class="table-wrap" id="table-wrap" hidden>
+        <table class="feed-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>ID</th>
+              <th>Item ID</th>
+              <th>Amount</th>
+              <th>Price</th>
+              <th>Account ID</th>
+              <th>Type</th>
+              <th>Raw args</th>
+              <th>Parsed args</th>
+              <th>Parse state</th>
+            </tr>
+          </thead>
+          <tbody id="feed-body"></tbody>
+        </table>
       </div>
     </section>
-
-    <aside id="debugPanel" class="debug-panel" aria-label="Debug panel">
-      <div class="debug-card">
-        <div class="debug-header">
-          <div>
-            <p class="debug-kicker">Debug</p>
-            <h1 class="debug-title">sign/index.html</h1>
-          </div>
-          <span id="statusBadge" class="status-badge">booting</span>
-        </div>
-
-        <dl class="debug-stats">
-          <div class="stat-row">
-            <dt>Mode</dt>
-            <dd id="modeValue">standalone</dd>
-          </div>
-          <div class="stat-row">
-            <dt>Chars</dt>
-            <dd id="charCount">0</dd>
-          </div>
-          <div class="stat-row">
-            <dt>Lines</dt>
-            <dd id="lineCount">0</dd>
-          </div>
-          <div class="stat-row">
-            <dt>Ready</dt>
-            <dd id="readyState">pending</dd>
-          </div>
-        </dl>
-
-        <label class="debug-label" for="debugInput">Manual text</label>
-        <textarea
-          id="debugInput"
-          class="debug-input"
-          rows="8"
-          placeholder="Type sign text here. New lines are preserved."
-        ></textarea>
-
-        <div class="debug-actions">
-          <button id="applyButton" class="debug-button debug-button--primary" type="button">Apply</button>
-          <button id="clearButton" class="debug-button" type="button">Clear</button>
-        </div>
-
-        <div class="preset-group">
-          <button class="preset-button" type="button" data-preset="WELCOME TO\nTHE TEST SIGN">Short preset</button>
-          <button class="preset-button" type="button" data-preset="Server event result:\nThe item was signed and published successfully.">Event preset</button>
-          <button class="preset-button" type="button" data-preset="Dlinnaya stroka dlya proverki avtomaticheskogo perenosa, masshtabirovaniya i bezopasnogo otobrazheniya teksta bez HTML-tegov <b>inline</b>.">Long preset</button>
-        </div>
-
-        <label class="debug-label" for="lastText">Last payload</label>
-        <pre id="lastText" class="last-text"></pre>
-      </div>
-    </aside>
   </main>
 
-  <script src="./script.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>
