@@ -3,6 +3,8 @@
 
   var UI_EVENT_NAME = "tradeLotFeed:update";
   var UI_READY_EVENT_NAME = "tradeLotFeed:ready";
+  var STORAGE_KEY = "tradeLotFeed:lastPayload";
+  var DEFAULT_IMPORT_STATUS = "Direct URL stays empty until a bridge or a share payload is provided.";
 
   var emptyState = document.getElementById("empty-state");
   var tableWrap = document.getElementById("table-wrap");
@@ -15,20 +17,31 @@
   var eventName = document.getElementById("event-name");
   var bridgeKind = document.getElementById("bridge-kind");
   var rawArgsBody = document.getElementById("raw-args-body");
+  var shareInput = document.getElementById("share-input");
+  var loadShareButton = document.getElementById("load-share");
+  var clearShareButton = document.getElementById("clear-share");
+  var importStatus = document.getElementById("import-status");
   var chunkState = {
     meta: null,
     parts: []
   };
 
   var bridge = detectBridge();
-  feedSource.textContent = "Source: " + bridge.label;
-  bridgeKind.textContent = bridge.kind;
+  setSourceMeta(bridge.label, bridge.kind);
+  setImportStatus(DEFAULT_IMPORT_STATUS, false);
   bridge.bind(function (payload) {
-    render(payload);
+    applyPayload(payload, {
+      sourceLabel: bridge.label,
+      bridgeLabel: bridge.kind
+    });
   });
   bridge.emitReady();
   registerFallbackBridge();
-  renderSharedPayloadFromLocation();
+  registerManualImport();
+
+  if (!renderSharedPayloadFromLocation()) {
+    renderStoredPayload();
+  }
 
   function detectBridge() {
     if (window.alt && typeof window.alt.on === "function") {
@@ -52,6 +65,26 @@
       bind: function () {},
       emitReady: function () {}
     };
+  }
+
+  function setSourceMeta(sourceLabel, bridgeLabel) {
+    if (sourceLabel) {
+      feedSource.textContent = "Source: " + sourceLabel;
+    }
+
+    if (bridgeLabel) {
+      bridgeKind.textContent = bridgeLabel;
+    }
+  }
+
+  function setImportStatus(text, isError) {
+    if (!importStatus) {
+      return;
+    }
+
+    importStatus.textContent = text || DEFAULT_IMPORT_STATUS;
+    importStatus.classList.toggle("import-status--error", !!isError);
+    importStatus.classList.toggle("import-status--success", !!text && !isError && text !== DEFAULT_IMPORT_STATUS);
   }
 
   function formatValue(value) {
@@ -147,7 +180,7 @@
       emptyState.hidden = false;
       tableWrap.hidden = true;
       entryCount.textContent = "0 lots";
-      syncStatus.textContent = "Waiting for payload";
+      syncStatus.textContent = args.length > 0 ? "Payload received without lots" : "Waiting for bridge or shared payload";
       return;
     }
 
@@ -156,6 +189,20 @@
     entryCount.textContent = items.length + " lots";
     syncStatus.textContent = "Payload received";
     renderLots(items);
+  }
+
+  function encodeBase64Url(value) {
+    var normalized = String(value || "");
+    var index;
+
+    for (index = 0; index < normalized.length; index++) {
+      if (normalized.charCodeAt(index) > 255) {
+        normalized = unescape(encodeURIComponent(normalized));
+        break;
+      }
+    }
+
+    return window.btoa(normalized).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
   }
 
   function decodeBase64Url(value) {
@@ -172,37 +219,194 @@
     }
   }
 
-  function readSharedPayload() {
-    var hash = window.location.hash || "";
-    var payloadMatch = hash.match(/payload=([^&]+)/);
-    var encoded = payloadMatch ? payloadMatch[1] : "";
+  function safeDecodeURIComponent(value) {
+    try {
+      return decodeURIComponent(value);
+    } catch (error) {
+      return value;
+    }
+  }
 
-    if (!encoded) {
-      return null;
+  function buildPayloadHash(payload) {
+    try {
+      return "payload=" + encodeBase64Url(JSON.stringify(payload));
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function parseJsonPayload(value, source) {
+    try {
+      var payload = JSON.parse(value);
+      return {
+        ok: true,
+        payload: payload,
+        source: source,
+        hash: buildPayloadHash(payload)
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        payload: null,
+        source: source,
+        hash: "",
+        error: error && error.message ? error.message : "Unknown JSON parse error"
+      };
+    }
+  }
+
+  function parseEncodedPayload(value, source) {
+    var encoded = safeDecodeURIComponent(String(value || "").trim());
+    var decoded = decodeBase64Url(encoded);
+
+    if (!decoded) {
+      return {
+        ok: false,
+        payload: null,
+        source: source,
+        hash: "",
+        error: "Could not decode the payload fragment."
+      };
     }
 
-    var decoded = decodeBase64Url(encoded);
-    if (!decoded) {
+    var result = parseJsonPayload(decoded, source);
+    if (result.ok) {
+      result.hash = "payload=" + encoded;
+    }
+
+    return result;
+  }
+
+  function parsePayloadText(value) {
+    var text = String(value || "").trim();
+    var payloadMatch;
+
+    if (!text) {
+      return {
+        ok: false,
+        payload: null,
+        source: "",
+        hash: "",
+        error: "Paste a share link, a payload fragment, a base64url payload, or raw JSON."
+      };
+    }
+
+    payloadMatch = text.match(/(?:#|[?&])payload=([^&]+)/);
+    if (payloadMatch && payloadMatch[1]) {
+      return parseEncodedPayload(payloadMatch[1], "shared-link");
+    }
+
+    if (/^#?payload=/.test(text)) {
+      return parseEncodedPayload(text.replace(/^#?payload=/, ""), "payload-fragment");
+    }
+
+    if (text.charAt(0) === "{" || text.charAt(0) === "[") {
+      return parseJsonPayload(text, "json");
+    }
+
+    if (/^[A-Za-z0-9\-_]+$/.test(text)) {
+      return parseEncodedPayload(text, "base64url");
+    }
+
+    return {
+      ok: false,
+      payload: null,
+      source: "",
+      hash: "",
+      error: "Could not detect a supported payload format in the provided text."
+    };
+  }
+
+  function persistPayload(payload, meta) {
+    if (!payload || typeof payload !== "object" || !window.localStorage) {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        savedAt: new Date().toISOString(),
+        sourceLabel: meta && meta.sourceLabel ? meta.sourceLabel : "",
+        bridgeLabel: meta && meta.bridgeLabel ? meta.bridgeLabel : "",
+        payload: payload
+      }));
+    } catch (error) {}
+  }
+
+  function readStoredPayload() {
+    if (!window.localStorage) {
       return null;
     }
 
     try {
-      return JSON.parse(decoded);
+      var raw = window.localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
     } catch (error) {
       return null;
     }
   }
 
-  function renderSharedPayloadFromLocation() {
-    var sharedPayload = readSharedPayload();
-
-    if (!sharedPayload) {
+  function syncLocationHash(hash) {
+    if (!hash || !window.history || typeof window.history.replaceState !== "function") {
       return;
     }
 
-    feedSource.textContent = "Source: shared payload link";
-    bridgeKind.textContent = "shared-link";
-    render(sharedPayload);
+    window.history.replaceState(null, "", window.location.pathname + window.location.search + "#" + hash);
+  }
+
+  function applyPayload(payload, meta) {
+    var sourceLabel = meta && meta.sourceLabel ? meta.sourceLabel : null;
+    var bridgeLabel = meta && meta.bridgeLabel ? meta.bridgeLabel : null;
+
+    setSourceMeta(sourceLabel, bridgeLabel);
+    render(payload);
+    persistPayload(payload, meta || {});
+  }
+
+  function renderSharedPayloadFromLocation() {
+    var hasSharedPayload = window.location.hash.indexOf("payload=") !== -1 || window.location.search.indexOf("payload=") !== -1;
+    var result;
+
+    if (!hasSharedPayload) {
+      return false;
+    }
+
+    result = parsePayloadText(window.location.href);
+    if (!result.ok) {
+      setImportStatus("Share link detected but could not be decoded: " + result.error, true);
+      return false;
+    }
+
+    applyPayload(result.payload, {
+      sourceLabel: "shared payload link",
+      bridgeLabel: "shared-link"
+    });
+
+    if (shareInput) {
+      shareInput.value = window.location.href;
+    }
+
+    setImportStatus("Payload loaded from the share link in the address bar.", false);
+    return true;
+  }
+
+  function renderStoredPayload() {
+    var storedPayload = readStoredPayload();
+
+    if (window.parent && window.parent !== window) {
+      return false;
+    }
+
+    if (!storedPayload || !storedPayload.payload) {
+      return false;
+    }
+
+    applyPayload(storedPayload.payload, {
+      sourceLabel: storedPayload.sourceLabel || "browser cache",
+      bridgeLabel: storedPayload.bridgeLabel || "cached"
+    });
+
+    setImportStatus("Loaded the last payload saved in this browser profile.", false);
+    return true;
   }
 
   function registerFallbackBridge() {
@@ -212,19 +416,59 @@
       }
 
       if (event.data.type === UI_EVENT_NAME || event.data.type === "tradeLotFeed:sync") {
-        render(event.data.payload);
+        applyPayload(event.data.payload, {
+          sourceLabel: "postMessage bridge",
+          bridgeLabel: "postMessage"
+        });
       }
     });
 
     window.addEventListener(UI_EVENT_NAME, function (event) {
       if (event.detail) {
-        render(event.detail);
+        applyPayload(event.detail, {
+          sourceLabel: "CustomEvent bridge",
+          bridgeLabel: "custom-event"
+        });
+      }
+    });
+  }
+
+  function registerManualImport() {
+    if (!shareInput || !loadShareButton || !clearShareButton) {
+      return;
+    }
+
+    loadShareButton.addEventListener("click", function () {
+      var result = parsePayloadText(shareInput.value);
+
+      if (!result.ok) {
+        setImportStatus(result.error, true);
+        return;
+      }
+
+      applyPayload(result.payload, {
+        sourceLabel: "manual import (" + result.source + ")",
+        bridgeLabel: "manual-import"
+      });
+      syncLocationHash(result.hash);
+      setImportStatus("Payload loaded from " + result.source + ".", false);
+    });
+
+    clearShareButton.addEventListener("click", function () {
+      shareInput.value = "";
+      setImportStatus(DEFAULT_IMPORT_STATUS, false);
+
+      if (window.history && typeof window.history.replaceState === "function") {
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
       }
     });
   }
 
   window.tradeLotFeedSync = function tradeLotFeedSync(payload) {
-    render(payload);
+    applyPayload(payload, {
+      sourceLabel: bridge.label,
+      bridgeLabel: bridge.kind
+    });
   };
 
   window.tradeLotFeedBegin = function tradeLotFeedBegin(meta) {
@@ -262,7 +506,10 @@
       };
     }
 
-    render(payload);
+    applyPayload(payload, {
+      sourceLabel: "chunk bridge",
+      bridgeLabel: "chunked-execute"
+    });
   };
 
   function notifyParentReady() {
