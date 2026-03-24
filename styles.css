@@ -69,6 +69,78 @@ h2 {
   color: var(--muted);
 }
 
+.subline--compact {
+  margin: 6px 0 0;
+}
+
+.import-panel {
+  margin-bottom: 18px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--bg-soft);
+}
+
+.share-input {
+  width: 100%;
+  min-height: 112px;
+  padding: 14px 16px;
+  border: 1px solid rgba(162, 197, 255, 0.18);
+  border-radius: 14px;
+  background: rgba(4, 10, 17, 0.62);
+  color: var(--text);
+  resize: vertical;
+  font: inherit;
+}
+
+.share-input:focus {
+  outline: 1px solid rgba(83, 199, 183, 0.44);
+  border-color: rgba(83, 199, 183, 0.52);
+}
+
+.import-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.action-button {
+  padding: 10px 14px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #05211f;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.action-button:hover {
+  filter: brightness(1.04);
+}
+
+.action-button--ghost {
+  border-color: var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+}
+
+.import-status {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.import-status--success {
+  color: var(--accent);
+}
+
+.import-status--error {
+  color: var(--danger);
+}
+
 .feed-meta {
   display: flex;
   justify-content: space-between;
@@ -208,9 +280,14 @@ h2 {
     border-radius: 18px;
   }
 
-  .feed-meta,
   .status-grid {
     grid-template-columns: 1fr;
+  }
+
+  .import-actions,
+  .feed-meta {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .feed-table th,

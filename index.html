@@ -13,6 +13,27 @@
       <h1 id="event-name">marketplace.client.trading.pushLots</h1>
       <p class="subline">This page is meant to be opened inside the game WebView and receive payloads through the client bridge.</p>
 
+      <section class="import-panel">
+        <div class="section-head">
+          <h2>Open outside the game</h2>
+          <p class="subline subline--compact">Paste a full share link, a raw <code>#payload=...</code> fragment, or the JSON payload itself.</p>
+        </div>
+
+        <textarea
+          id="share-input"
+          class="share-input"
+          rows="4"
+          spellcheck="false"
+          placeholder="https://gawdweq-maker.github.io/1232/#payload=..."
+        ></textarea>
+
+        <div class="import-actions">
+          <button id="load-share" class="action-button" type="button">Load payload</button>
+          <button id="clear-share" class="action-button action-button--ghost" type="button">Clear</button>
+          <strong id="import-status" class="import-status">Direct URL stays empty until a bridge or a share payload is provided.</strong>
+        </div>
+      </section>
+
       <div class="feed-meta">
         <span id="feed-source">Source: booting</span>
         <span id="entry-count">0 lots</span>
