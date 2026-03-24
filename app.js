@@ -27,6 +27,7 @@
     render(payload);
   });
   bridge.emitReady();
+  registerFallbackBridge();
 
   function detectBridge() {
     if (window.alt && typeof window.alt.on === "function") {
@@ -154,6 +155,24 @@
     entryCount.textContent = items.length + " lots";
     syncStatus.textContent = "Payload received";
     renderLots(items);
+  }
+
+  function registerFallbackBridge() {
+    window.addEventListener("message", function (event) {
+      if (!event.data || typeof event.data !== "object") {
+        return;
+      }
+
+      if (event.data.type === UI_EVENT_NAME) {
+        render(event.data.payload);
+      }
+    });
+
+    window.addEventListener(UI_EVENT_NAME, function (event) {
+      if (event.detail) {
+        render(event.detail);
+      }
+    });
   }
 
   window.tradeLotFeedSync = function tradeLotFeedSync(payload) {
