@@ -28,6 +28,7 @@
   });
   bridge.emitReady();
   registerFallbackBridge();
+  renderSharedPayloadFromLocation();
 
   function detectBridge() {
     if (window.alt && typeof window.alt.on === "function") {
@@ -155,6 +156,53 @@
     entryCount.textContent = items.length + " lots";
     syncStatus.textContent = "Payload received";
     renderLots(items);
+  }
+
+  function decodeBase64Url(value) {
+    var normalized = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
+
+    while (normalized.length % 4 !== 0) {
+      normalized += "=";
+    }
+
+    try {
+      return decodeURIComponent(escape(window.atob(normalized)));
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function readSharedPayload() {
+    var hash = window.location.hash || "";
+    var payloadMatch = hash.match(/payload=([^&]+)/);
+    var encoded = payloadMatch ? payloadMatch[1] : "";
+
+    if (!encoded) {
+      return null;
+    }
+
+    var decoded = decodeBase64Url(encoded);
+    if (!decoded) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(decoded);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function renderSharedPayloadFromLocation() {
+    var sharedPayload = readSharedPayload();
+
+    if (!sharedPayload) {
+      return;
+    }
+
+    feedSource.textContent = "Source: shared payload link";
+    bridgeKind.textContent = "shared-link";
+    render(sharedPayload);
   }
 
   function registerFallbackBridge() {
