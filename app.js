@@ -317,13 +317,23 @@
     };
   }
 
+  function getSafeLocalStorage() {
+    try {
+      return window.localStorage;
+    } catch (error) {
+      return null;
+    }
+  }
+
   function persistPayload(payload, meta) {
-    if (!payload || typeof payload !== "object" || !window.localStorage) {
+    var storage = getSafeLocalStorage();
+
+    if (!payload || typeof payload !== "object" || !storage) {
       return;
     }
 
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      storage.setItem(STORAGE_KEY, JSON.stringify({
         savedAt: new Date().toISOString(),
         sourceLabel: meta && meta.sourceLabel ? meta.sourceLabel : "",
         bridgeLabel: meta && meta.bridgeLabel ? meta.bridgeLabel : "",
@@ -333,12 +343,14 @@
   }
 
   function readStoredPayload() {
-    if (!window.localStorage) {
+    var storage = getSafeLocalStorage();
+
+    if (!storage) {
       return null;
     }
 
     try {
-      var raw = window.localStorage.getItem(STORAGE_KEY);
+      var raw = storage.getItem(STORAGE_KEY);
       return raw ? JSON.parse(raw) : null;
     } catch (error) {
       return null;
